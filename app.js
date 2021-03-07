@@ -1,3 +1,16 @@
+const fs = require('fs');
+
+let wallets;
+try {
+    const data = fs.readFileSync('./wallets.json', 'utf8');
+    wallets = JSON.parse(data);
+
+} catch (err) {
+    console.log(`Error reading file from disk: ${err}`);
+}
+
+
+
 let bitcoin = require('bitcoinjs-lib');
 let bip32 = require('bip32');
 const mainnet = bitcoin.networks.mainnet;
@@ -12,7 +25,8 @@ function toScriptHash(address) {
 }
 
 
-const xpub = '';
+
+const xpub = wallets['single'].xpubs[0];
 function getAddress(xpub, number) {
 	let root = bip32.fromBase58(xpub);
 
@@ -27,8 +41,7 @@ function getAddress(xpub, number) {
 
 
 
-  const xpubs = [
-    ];
+const xpubs = wallets['multi'].xpubs;
 
 
 function getAddressForMultisig(xpubs, number) {
