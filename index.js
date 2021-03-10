@@ -17,15 +17,22 @@ const server = new WebSocket.Server({
     port: 8080
 });
 
+const xpub = wallets['single'].xpubs[0];
+const xpubs = wallets['multi'].xpubs;
+
+
+// let address = btc.getAddressForMultisig(xpubs, 0);
+let address = btc.getAddress(xpub, 10);
+let scriptHash = btc.toScriptHash(address);
+
+
+
+electrum.getTransaction("0489a9911d17f146545fe6ac3a9523057fff8c06fae4aa9b49bca8317919f81b", x => console.log(x));
+let data = [];
+electrum.getHistory(scriptHash, x => console.log(x));
 server.on('connection', function(socket) {
     socket.on('message', function(msg) {
-        const xpub = wallets['single'].xpubs[0];
-        const xpubs = wallets['multi'].xpubs;
-
-        let address = btc.getAddressForMultisig(xpubs, 0);
-        let scriptHash = btc.toScriptHash(address);
-
-        electrum.getHistory(scriptHash, x => socket.send(JSON.stringify(x)));
+        electrum.getHistory(scriptHash, x => socket.send(JSON.stringify(data)));
     });
 });
 

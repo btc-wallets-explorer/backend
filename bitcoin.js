@@ -11,10 +11,10 @@ function toScriptHash(address) {
 	return scriptHash;
 }
 
-function getAddress(xpub, number) {
+function getAddress(xpub, number, change = 0) {
 	let root = bip32.fromBase58(xpub);
 
-	const child = root.derive(0).derive(number);
+	const child = root.derive(change).derive(number);
 
 	const { address } = bitcoin.payments.p2wpkh({
         	pubkey: child.publicKey,
@@ -23,8 +23,8 @@ function getAddress(xpub, number) {
 	return address;
 }
 
-function getAddressForMultisig(xpubs, number) {
-	let pubkeys = xpubs.map(x => bip32.fromBase58(x).derive(0).derive(number).publicKey);
+function getAddressForMultisig(xpubs, number, change = 0) {
+	let pubkeys = xpubs.map(x => bip32.fromBase58(x).derive(change).derive(number).publicKey);
 
 	pubkeys.sort();
 	const { address } = bitcoin.payments.p2wsh({
