@@ -1,18 +1,4 @@
-var treeData =
-  {
-    "name": "Top Level",
-    "children": [
-      {
-        "name": "Level 2: A",
-        "children": [
-          { "name": "Son of A" },
-          { "name": "Daughter of A" }
-        ]
-      },
-      { "name": "Level 2: B" }
-    ]
-  };
-
+function makeGraph(treeData) {
 // Set the dimensions and margins of the diagram
 var margin = {top: 20, right: 90, bottom: 30, left: 90},
     width = 960 - margin.left - margin.right,
@@ -195,6 +181,7 @@ function update(source) {
     update(d);
   }
 }
+}
 
 const ws = new WebSocket('ws://localhost:8080');
 
@@ -223,7 +210,7 @@ ws.onmessage = function(msg) {
                 { "name": "Level 3: C"}
             ]
         };
-    update(treeData);
+    makeGraph(treeData);
 
 };
 
