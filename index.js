@@ -1,66 +1,108 @@
+import { readFileSync } from 'fs';
+import WebSocket from 'ws';
+import { getAddressForMultisig, toScriptHash } from './bitcoin.js';
+import ElectrumClient from './deps/electrum-client/index.js';
+import { range } from './helpers.js';
+
 async function main() {
-    const fs = require('fs');
-
-    const WebSocket = require('ws');
-
-    const btc = require('./bitcoin');
-    const electrum = require('./electrum');
-    const helpers = require('./helpers');
+    const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
+    await electrum.connect();
 
     // load wallets
     let wallets;
     try {
-        const data = fs.readFileSync('./wallets.json', 'utf8');
+        const data = readFileSync('./wallets.json', 'utf8');
         wallets = JSON.parse(data);
     } catch (err) {
         console.log(`Error reading file from disk: ${err}`);
     }
 
-    const server = new WebSocket.Server({
-        port: 8080
-    });
-
     const xpubs = wallets['multi'].xpubs;
-
-    var addresses = helpers.range(100).map(index => btc.getAddressForMultisig(xpubs, index));
-    var scriptHashes = addresses.map(a => btc.toScriptHash(a));
-    var address = addresses[0];
-    var scriptHash = scriptHashes[0];
-    console.log(histories);
+    var addresses = range(100).map(index => getAddressForMultisig(xpubs, index));
+    var scriptHashes = addresses.map(a => toScriptHash(a));
 
     var histories = [];
-    for (h of scriptHashes) {
-        var hist = await electrum.getHistory(h);
+    for (let h of scriptHashes) {
+        var hist = await electrum.blockchainScripthash_getHistory(h);
 
         if (hist.length > 0) {
             histories.push(hist);
         }
     }
+    var transactionHashes = histories.map(h => h.map(t => t.tx_hash)).flat();
+    const transactions = {};
 
-    console.log(histories);
-    var transactions = histories.map(h => h.map(t => t.tx_hash));
-    var transactions = await Promise.all(histories.map(h => h.map(t => electrum.getTransaction(t))));
+    for (const hash of transactionHashes) {
+        transactions[hash] = await electrum.blockchainTransaction_get(hash, true);
+    }
+    console.log(Object.keys(transactions).length);
 
-    var data =
-        {
-            "name": "Top Level",
-            "children": [
-                {
-                    "name": "Level 2: A",
-                    "children": [
-                        { "name": "Son of A" },
-                        { "name": "Daughter of A" }
-                    ]
-                },
-                { "name": "Level 2: B" }
-            ]
-        };
-    // electrum.getHistory(scriptHash, x => console.log(x));
-    server.on('connection', function(socket) {
-        socket.on('message', function(msg) {
-            electrum.getHistory(scriptHash, x => socket.send(JSON.stringify(data)));
-        });
+    let links = [];
+
+    for (const transaction of Object.values(transactions)) {
+        links = links.concat(transaction.vin.map(vin => ({ source: transaction.txid, target: vin.txid, value: 1 })));
+
+        const tx_list = transaction.vin.map(vin => vin.txid).filter(id => typeof id === 'string');
+        for (const tx of tx_list)
+            transactions[tx] = await electrum.blockchainTransaction_get(tx, true)
+    };
+
+    console.log(Object.keys(transactions).length);
+
+
+    let id = 0;
+    const nodes = Object.keys(transactions).map(tx => ({ node: id++, name: tx }));
+
+
+    var nodeHash = {};
+    nodes.forEach(d => {
+        nodeHash[d.name] = d.node;
     });
+
+    links = links.map(d => ({
+        source: nodeHash[d.source],
+        target: nodeHash[d.target]
+    }));
+
+    const model = { nodes, links };
+    console.log(model);
+    // const model = {
+    //     "nodes": [
+    //         { "node": 0, "name": "node0" },
+    //         { "node": 1, "name": "node1" },
+    //         { "node": 2, "name": "node2" },
+    //         { "node": 3, "name": "node3" },
+    //         { "node": 4, "name": "node4" }
+    //     ],
+    //     "links": [
+    //         { "source": 0, "target": 2, "value": 2 },
+    //         { "source": 1, "target": 2, "value": 2 },
+    //         { "source": 1, "target": 3, "value": 2 },
+    //         { "source": 0, "target": 4, "value": 2 },
+    //         { "source": 2, "target": 3, "value": 2 },
+    //         { "source": 2, "target": 4, "value": 2 },
+    //         { "source": 3, "target": 4, "value": 4 }
+    //     ]
+    // };
+
+
+    const wss = new WebSocket.Server({ port: 8080 })
+
+    wss.on("connection", ws => {
+        console.log("new client connected");
+        ws.on("message", data => {
+            console.log(`Client has sent us: ${data}`);
+
+            ws.send(JSON.stringify(model));
+        });
+        ws.on("close", () => {
+            console.log("the client has connected");
+        });
+        ws.onerror = function () {
+            console.log("Some Error occurred")
+        }
+    });
+    console.log("The WebSocket server is running on port 8080");
 
 };
 main();

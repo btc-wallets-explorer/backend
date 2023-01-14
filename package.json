@@ -6,13 +6,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "module",
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bip32": "^2.0.6",
     "bitcoinjs-lib": "^5.2.0",
     "csp": "0.0.1-alpha1",
-    "eslint": "^7.21.0",
     "swank-js": "0.0.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.31.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
   }
 }

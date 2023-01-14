@@ -1,0 +1,3 @@
+[submodule "deps/electrum-client"]
+	path = deps/electrum-client
+	url = https://github.com/mempool/electrum-client
