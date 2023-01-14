@@ -61,8 +61,6 @@ var path = sankey.link();
 
 // load the data
 const generate = (graph) => {
-  console.log(typeof graph);
-
     var nodeMap = {};
     graph.nodes.forEach(function(x) { nodeMap[x.name] = x; });
     graph.links = graph.links.map(function(x) {
@@ -145,7 +143,9 @@ const generate = (graph) => {
  
 const ws = new WebSocket('ws://localhost:8080');
 ws.onmessage = (event) => {
-  generate(JSON.parse(event.data));
+  const data = JSON.parse(event.data);
+  console.log(JSON.stringify(data, null, 2));
+  generate(data);
 };
 
 ws.onopen = (event) => {
