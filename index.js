@@ -40,12 +40,21 @@ async function main() {
     let links = [];
 
     for (const transaction of Object.values(transactions)) {
-        links = links.concat(transaction.vin.map(vin => ({ source: transaction.txid, target: vin.txid, value: 1 })));
 
         const tx_list = transaction.vin.map(vin => vin.txid).filter(id => typeof id === 'string');
         for (const tx of tx_list)
             transactions[tx] = await electrum.blockchainTransaction_get(tx, true)
     };
+
+    for (const transaction of Object.values(transactions)) {
+        links = links.concat(transaction.vin
+            .filter(vin => transactions[vin.txid] !== undefined)
+            .map(vin => ({
+                source: transaction.txid,
+                target: vin.txid,
+                value: transactions[vin.txid].vout[vin.vout].value
+            })));
+    }
 
     console.log(Object.keys(transactions).length);
 
@@ -55,6 +64,7 @@ async function main() {
 
 
     const model = { nodes, links };
+    console.log(model);
     // console.log(model);
     // const model = {
     //     "nodes": [
