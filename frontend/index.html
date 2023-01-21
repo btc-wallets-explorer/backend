@@ -32,6 +32,8 @@
     <script src="sankey.js"></script>
     <script>
 
+      const mempoolUrl = "https://mempool.some.domain:8080/tx/";
+
       var units = "Widgets";
 
       var margin = { top: 10, right: 10, bottom: 10, left: 10 },
@@ -112,10 +114,12 @@
         // add the rectangles for the nodes
         node.append("rect")
           .attr("height", function (d) { return d.dy; })
+          // .attr("height", () => 10)
           .attr("width", sankey.nodeWidth())
           .style("fill", function (d) {
             return d.color = color(d.name.replace(/ .*/, ""));
           })
+          .on('click', (d) => window.open(mempoolUrl + d.name, "_blank") )
           .style("stroke", function (d) {
             return d3.rgb(d.color).darker(2);
           })
@@ -152,7 +156,7 @@
       const ws = new WebSocket('ws://localhost:8080');
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log(JSON.stringify(data, null, 2));
+        // console.log(JSON.stringify(data, null, 2));
         generate(data);
       };
 

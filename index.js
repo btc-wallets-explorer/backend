@@ -8,59 +8,41 @@ async function main() {
     const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
     await electrum.connect();
 
-    // load wallets
-    let wallets;
-    try {
-        const data = readFileSync('./wallets.json', 'utf8');
-        wallets = JSON.parse(data);
-    } catch (err) {
-        console.log(`Error reading file from disk: ${err}`);
+    const loadWallets = (filename) => {
+        let wallets;
+        try {
+            const data = readFileSync(filename, 'utf8');
+            return JSON.parse(data);
+        } catch (err) {
+            console.log(`Error reading file from disk: ${err}`);
+        }
     }
+
+    const wallets = loadWallets('./wallets.json');
 
     const xpubs = wallets['multi'].xpubs;
     var addresses = range(100).map(index => getAddressForMultisig(xpubs, index));
     var scriptHashes = addresses.map(a => toScriptHash(a));
 
-    var histories = [];
-    for (let h of scriptHashes) {
-        var hist = await electrum.blockchainScripthash_getHistory(h);
+    const histories = (await Promise.all(
+        scriptHashes.map(async hash => electrum.blockchainScripthash_getHistory(hash)))
+    ).flat();
 
-        if (hist.length > 0) {
-            histories.push(hist);
-        }
-    }
-    var transactionHashes = histories.map(h => h.map(t => t.tx_hash)).flat();
-    const transactions = {};
+    const transactions = await Promise.all(
+        histories.map(async h => electrum.blockchainTransaction_get(h.tx_hash, true))
+    );
 
-    for (const hash of transactionHashes) {
-        transactions[hash] = await electrum.blockchainTransaction_get(hash, true);
-    }
-    console.log(Object.keys(transactions).length);
+    const transactionMap = Object.fromEntries(transactions.map(t => [t.txid, t]))
+    const ourTransactions = Object.keys(transactionMap);
 
-    let links = [];
-
-    for (const transaction of Object.values(transactions)) {
-
-        const tx_list = transaction.vin.map(vin => vin.txid).filter(id => typeof id === 'string');
-        for (const tx of tx_list)
-            transactions[tx] = await electrum.blockchainTransaction_get(tx, true)
-    };
-
-    for (const transaction of Object.values(transactions)) {
-        links = links.concat(transaction.vin
-            .filter(vin => transactions[vin.txid] !== undefined)
-            .map(vin => ({
-                source: transaction.txid,
-                target: vin.txid,
-                value: transactions[vin.txid].vout[vin.vout].value
-            })));
-    }
+    const links = transactions
+        .flatMap(t => t.vin.map(vin => ({ target: t.txid, source: vin.txid, value: 1, vin })))
+        .filter(l => ourTransactions.includes(l.target) && ourTransactions.includes(l.source));
 
     console.log(Object.keys(transactions).length);
-
 
     let id = 0;
-    let nodes = Object.keys(transactions).map(tx => ({ id: id++, name: tx }));
+    let nodes = Object.values(transactionMap).map(tx => ({ id: id++, name: tx.txid, tx }));
 
 
     const model = { nodes, links };
