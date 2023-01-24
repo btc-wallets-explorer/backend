@@ -20,10 +20,6 @@ async function main() {
     const wallets = loadWallets('./wallets.json');
 
     const createModelForWallet = async (wallet, group) => {
-        // TODO
-        // if (wallet.type === 'p2sh-p2wpkh')
-        //     return { nodes: [], links: [] };
-            
         const addresses = 'xpub' in wallet ?
             range(100).map(index => getAddress(wallet.xpub, wallet.type, index)) :
             range(100).map(index => getAddressForMultisig(wallet.xpubs, index))
@@ -60,7 +56,7 @@ async function main() {
         console.log(group, Object.keys(transactions).length);
 
         let id = 0;
-        let nodes = Object.values(transactionMap).map(tx => ({ id: id++, name: tx.txid, tx, group }));
+        let nodes = Object.values(transactionMap).map(tx => ({ id: group + ' ' + id++, name: tx.txid, tx, group }));
 
         return { nodes, links };
     }
