@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
-import WebSocket from 'ws';
-import { getAddressForMultisig, toScriptHash } from './bitcoin.js';
+import { WebSocketServer} from 'ws';
+import { getAddress, getAddressForMultisig, toScriptHash } from './bitcoin.js';
 import ElectrumClient from './deps/electrum-client/index.js';
 import { range } from './helpers.js';
 
@@ -20,8 +20,18 @@ async function main() {
     const wallets = loadWallets('./wallets.json');
 
     const createModelForWallet = async (wallet, group) => {
-        var addresses = range(100).map(index => getAddressForMultisig(wallet.xpubs, index));
-        var scriptHashes = addresses.map(a => toScriptHash(a));
+        // TODO
+        // if (wallet.type === 'p2sh-p2wpkh')
+        //     return { nodes: [], links: [] };
+            
+        const addresses = 'xpub' in wallet ?
+            range(100).map(index => getAddress(wallet.xpub, wallet.type, index)) :
+            range(100).map(index => getAddressForMultisig(wallet.xpubs, index))
+        const changeAddresses = 'xpub' in wallet ?
+            range(100).map(index => getAddress(wallet.xpub, wallet.type, index, 1)) :
+            range(100).map(index => getAddressForMultisig(wallet.xpubs, index, 1))
+
+        var scriptHashes = [...addresses, ...changeAddresses].map(a => toScriptHash(a));
 
         const histories = (await Promise.all(
             scriptHashes.map(async hash => electrum.blockchainScripthash_getHistory(hash)))
@@ -47,15 +57,19 @@ async function main() {
             .map(async l => ({ ...l, value: (await getTransaction(l.vin.txid)).vout[l.vin.vout].value })));
 
 
-        console.log(Object.keys(transactions).length);
+        console.log(group, Object.keys(transactions).length);
 
         let id = 0;
-        let nodes = Object.values(transactionMap).map(tx => ({ id: id++, name: tx.txid, tx, group}));
+        let nodes = Object.values(transactionMap).map(tx => ({ id: id++, name: tx.txid, tx, group }));
 
-        return {nodes, links};
+        return { nodes, links };
     }
 
-    const model = await createModelForWallet(wallets['ms1'], 'ms1');
+    const models = await Promise.all(Object.entries(wallets).map(async ([k, v]) => await createModelForWallet(v, k)));
+    const model = {
+        nodes: models.map(m => m.nodes).flat(),
+        links: models.map(m => m.links).flat()
+    }
     console.log(model);
     // console.log(model);
     // const model = {
@@ -78,7 +92,7 @@ async function main() {
     // };
 
 
-    const wss = new WebSocket.Server({ port: 8080 })
+    const wss = new WebSocketServer({ port: 8080 })
 
     wss.on("connection", ws => {
         console.log("new client connected");

@@ -1,7 +1,7 @@
-import bitcoin from 'bitcoinjs-lib';
 import bip32 from 'bip32';
+import bitcoin from 'bitcoinjs-lib';
 
-const mainnet = bitcoin.networks.mainnet;
+const network = bitcoin.networks.bitcoin;
 
 export const toScriptHash = (address) => {
 	let script = bitcoin.address.toOutputScript(address);
@@ -12,16 +12,27 @@ export const toScriptHash = (address) => {
 	return scriptHash;
 }
 
-export const getAddress = (xpub, number, change = 0) => {
+export const getAddress = (xpub, type, number, change = 0) => {
 	let root = bip32.fromBase58(xpub);
 
 	const child = root.derive(change).derive(number);
 
-	const { address } = bitcoin.payments.p2wpkh({
-        	pubkey: child.publicKey,
-	        network: mainnet,
-	    });
-	return address;
+	const p2wpkh = bitcoin.payments.p2wpkh({
+		pubkey: child.publicKey,
+		network
+	});
+
+	if (type === 'p2sh-p2wpkh') {
+		const { address } = bitcoin.payments.p2sh({
+			redeem: p2wpkh,
+			network
+		})
+
+		return address;
+	}
+
+
+	return p2wpkh.address;
 }
 
 export const getAddressForMultisig = (xpubs, number, change = 0) => {
@@ -29,7 +40,7 @@ export const getAddressForMultisig = (xpubs, number, change = 0) => {
 
 	pubkeys.sort();
 	const { address } = bitcoin.payments.p2wsh({
-		redeem: bitcoin.payments.p2ms({ m: 2, pubkeys}),
-    });
+		redeem: bitcoin.payments.p2ms({ m: 2, pubkeys }),
+	});
 	return address;
 }
