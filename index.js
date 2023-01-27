@@ -8,7 +8,7 @@ async function main() {
     const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
     await electrum.connect();
 
-    const loadWallets = (filename) => {
+    const loadFile = (filename) => {
         try {
             const data = readFileSync(filename, 'utf8');
             return JSON.parse(data);
@@ -17,7 +17,8 @@ async function main() {
         }
     }
 
-    const wallets = loadWallets('./wallets.json');
+    const wallets = loadFile('./wallets.json');
+    const settings = loadFile('./settings.json');
 
     const createModelForWallet = async (wallet, group) => {
         const addresses = 'xpub' in wallet ?
@@ -95,7 +96,7 @@ async function main() {
         ws.on("message", data => {
             console.log(`Client has sent us: ${data}`);
 
-            ws.send(JSON.stringify(model));
+            ws.send(JSON.stringify({model, settings}));
         });
         ws.on("close", () => {
             console.log("the client has connected");

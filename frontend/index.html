@@ -37,8 +37,6 @@
   <script src="sankey.js"></script>
   <script>
 
-    const mempoolUrl = "https://mempool.some.domain:8080/tx/";
-
     var units = "Widgets";
 
     var margin = { top: 10, right: 10, bottom: 10, left: 10 },
@@ -69,7 +67,7 @@
     var path = sankey.link();
 
     // load the data
-    const generate = (graph) => {
+    const generate = (graph, settings) => {
       var nodeMap = {};
       graph.nodes.forEach(function (x) { nodeMap[x.name] = x; });
       graph.links = graph.links.map(function (x) {
@@ -124,7 +122,7 @@
         .style("fill", function (d) {
           return d.color = color(d.group.replace(/ .*/, ""));
         })
-        .on('click', (d) => window.open(mempoolUrl + d.name, "_blank"))
+        .on('click', (d) => {console.log(settings); window.open(settings["block-explorer-url"] + d.name, "_blank")})
         .style("stroke", function (d) {
           return d3.rgb(d.color).darker(2);
         })
@@ -162,12 +160,8 @@
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       // console.log(JSON.stringify(data, null, 2));
-      generate(data);
 
-
-      const txs = data.nodes.map(n => n.name);
-      const set = new Set(txs);
-      console.log(txs.length, set.size)
+      generate(data.model, data.settings);
     };
 
     ws.onopen = (event) => {
