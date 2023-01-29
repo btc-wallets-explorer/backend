@@ -22,12 +22,12 @@ async function main() {
 
     const createModelForWallet = async (wallet, group) => {
         const addresses = 'xpub' in wallet ?
-            range(100).map(index => getAddress(wallet.xpub, wallet.type, index)) :
+            range(100).map(index => getAddress(wallet.xpub, wallet.type, index, 0)) :
             range(100).map(index => getAddressForMultisig(wallet.xpubs, index))
         const changeAddresses = 'xpub' in wallet ?
             range(100).map(index => getAddress(wallet.xpub, wallet.type, index, 1)) :
             range(100).map(index => getAddressForMultisig(wallet.xpubs, index, 1))
-
+        
         var scriptHashes = [...addresses, ...changeAddresses].map(a => toScriptHash(a));
 
         const histories = (await Promise.all(
