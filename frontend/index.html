@@ -37,15 +37,13 @@
   <script src="sankey.js"></script>
   <script>
 
-    var units = "Widgets";
+    var units = "units";
 
     var margin = { top: 10, right: 10, bottom: 10, left: 10 },
       width = 1200 - margin.left - margin.right,
       height = 740 - margin.top - margin.bottom;
 
-    var formatNumber = d3.format(",.0f"),    // zero decimal places
-      format = function (d) { return formatNumber(d) + " " + units; },
-      color = d3.scale.category20();
+    const color = d3.scale.category20();
 
     // append the svg canvas to the page
     var svg = d3.select("#chart").append("svg")
@@ -96,7 +94,7 @@
       link.append("title")
         .text(function (d) {
           return d.source.name + " → " +
-            d.target.name + "\n" + format(d.value);
+            d.target.name + "\n" + d.value;
         });
 
       // add in the nodes
@@ -128,20 +126,20 @@
         })
         .append("title")
         .text(function (d) {
-          return d.id + "\n" + format(d.value);
+          return d.id + "\n" + d.value;
         });
 
       // add in the title for the nodes
-      node.append("text")
-        .attr("x", -6)
-        .attr("y", function (d) { return d.dy / 2; })
-        .attr("dy", ".35em")
-        .attr("text-anchor", "end")
-        .attr("transform", null)
-        .text(function (d) { return d.id; })
-        .filter(function (d) { return d.x < width / 2; })
-        .attr("x", 6 + sankey.nodeWidth())
-        .attr("text-anchor", "start");
+      // node.append("text")
+      //   .attr("x", -6)
+      //   .attr("y", function (d) { return d.dy / 2; })
+      //   .attr("dy", ".35em")
+      //   .attr("text-anchor", "end")
+      //   .attr("transform", null)
+      //   .text(function (d) { return d.id; })
+      //   .filter(function (d) { return d.x < width / 2; })
+      //   .attr("x", 6 + sankey.nodeWidth())
+      //   .attr("text-anchor", "start");
 
       // the function for moving the nodes
       function dragmove(d) {
