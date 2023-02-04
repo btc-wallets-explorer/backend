@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs';
-import { WebSocketServer} from 'ws';
+import { WebSocketServer } from 'ws';
 import { getAddress, getAddressForMultisig, toScriptHash } from './bitcoin.js';
 import ElectrumClient from './deps/electrum-client/index.js';
 import { range } from './helpers.js';
@@ -20,74 +20,104 @@ async function main() {
     const wallets = loadFile('./wallets.json');
     const settings = loadFile('./settings.json');
 
-    const createModelForWallet = async (wallet, group) => {
-        const addresses = 'xpub' in wallet ?
-            range(100).map(index => getAddress(wallet.xpub, wallet.type, index, 0)) :
-            range(100).map(index => getAddressForMultisig(wallet.xpubs, index))
-        const changeAddresses = 'xpub' in wallet ?
-            range(100).map(index => getAddress(wallet.xpub, wallet.type, index, 1)) :
-            range(100).map(index => getAddressForMultisig(wallet.xpubs, index, 1))
-        
-        var scriptHashes = [...addresses, ...changeAddresses].map(a => toScriptHash(a));
+    const getAddresses = (wallet) => {
+        const getAddressFn = 'xpub' in wallet ? getAddress : getAddressForMultisig;
+        const xpubInfo = 'xpub' in wallet ? wallet.xpub : wallet.xpubs;
 
-        const histories = (await Promise.all(
-            scriptHashes.map(async hash => electrum.blockchainScripthash_getHistory(hash)))
+        const objs = [0, 1].map(isChange =>
+            range(100).map(index => ({
+                address: getAddressFn(xpubInfo, wallet.type, index, isChange),
+                isChange,
+                index,
+                type: wallet.type
+            }))
         ).flat();
 
+        return Object.fromEntries(objs.map(o => [o.address, o]));
+    }
+
+    const getHistories = async (addresses) => {
+        const histories = await Promise.all(
+            addresses.map(async address => ({
+                hash: toScriptHash(address),
+                address,
+                histories: await electrum.blockchainScripthash_getHistory(toScriptHash(address))
+            })));
+
+        return Object.fromEntries(
+            histories
+                .filter(h => h.histories.length > 0)
+                .map(h => [h.hash, h])
+        );
+    }
+
+    const getTransactions = async (txHashes) => {
         const transactions = await Promise.all(
-            histories.map(async h => electrum.blockchainTransaction_get(h.tx_hash, true))
+            txHashes.map(async h => await electrum.blockchainTransaction_get(h, true))
         );
 
-        const transactionMap = Object.fromEntries(transactions.map(t => [t.txid, t]))
-        const ourTransactions = Object.keys(transactionMap);
+        return Object.fromEntries(transactions.map(t => [t.txid, t]))
+    };
 
-        const getTransaction = async (txid) => {
-            if (!txid in transactionMap)
-                transactionMap[txid] = await electrum.blockchainTransaction_get(txid, true);
+    const getTransaction = async (transactionMap, tx_hash) => {
+        if (!tx_hash in transactionMap)
+            transactionMap[tx_hash] = await electrum.blockchainTransaction_get(tx_hash, true);
 
-            return transactionMap[txid];
-        }
-
-        const links = await Promise.all(transactions
-            .flatMap(t => t.vin.map(vin => ({ target: t.txid, source: vin.txid, value: 1, vin })))
-            .filter(l => ourTransactions.includes(l.target) && ourTransactions.includes(l.source))
-            .map(async l => ({ ...l, value: (await getTransaction(l.vin.txid)).vout[l.vin.vout].value })));
-
-
-        console.log(group, Object.keys(transactions).length);
-
-        let id = 0;
-        let nodes = Object.values(transactionMap).map(tx => ({ id: group + ' ' + id++, name: tx.txid, tx, group }));
-
-        return { nodes, links };
+        return transactionMap[tx_hash];
     }
 
-    const models = await Promise.all(Object.entries(wallets).map(async ([k, v]) => await createModelForWallet(v, k)));
-    const model = {
-        nodes: models.map(m => m.nodes).flat(),
-        links: models.map(m => m.links).flat()
+    const getScriptHashMapForWallet = async (wallet) => {
+        const addressMap = getAddresses(wallet);
+        return await getHistories(Object.keys(addressMap));
     }
+
+    const generateLinks = async (transactionMap, walletScriptHashMap) => {
+        const histories = Object.entries(walletScriptHashMap)
+            .flatMap(([wallet, o]) =>
+                Object.entries(o).flatMap(([scriptHash, v]) =>
+                    v.histories.map(hist =>
+                        ({ wallet, scriptHash, address: v.address, txid: hist.tx_hash }))));
+
+        // load all other transactions
+        const otherTransactions = histories.flatMap(h =>
+            transactionMap[h.txid].vin.map(async vin => vin.txid));
+
+        // const outgoingTxos = histories.map(h =>
+        //     transactionMap[h.txid].vout
+        //         .filter(vout => vout.scriptPubKey.address === h.address)
+        //         .map(vout => ({...h, source: h.txid, value: vout.value }))
+        // );
+
+        const outgoingTxos = histories.map(h =>
+            transactionMap[h.txid].vout
+                .filter(vout => vout.scriptPubKey.address === h.address)
+                .map(vout => ({ ...h, source: h.txid, value: vout.value }))
+        );
+
+        console.log(outgoingTxos);
+
+
+    };
+
+    const walletScriptHashMap = Object.fromEntries(await Promise.all(
+        Object.keys(wallets).map(async w => [w, await getScriptHashMapForWallet(wallets[w])])
+    ));
+
+    const txHashes = Object.values(walletScriptHashMap)
+        .flatMap(walletMap => Object.values(walletMap).flatMap(h => h.histories))
+        .map(h => h.tx_hash);
+
+    let transactionMap = await getTransactions(txHashes);
+    console.log(txHashes);
+    console.log(transactionMap);
+
+    let id = 0;
+    const nodes = Object.values(transactionMap).map(tx => ({ id: tx.hash[0, 4], name: tx.hash, tx }));
+    const links = await generateLinks(transactionMap, walletScriptHashMap);
+
+
+    const model = { nodes, links };
     console.log(model);
-    // console.log(model);
-    // const model = {
-    //     "nodes": [
-    //         { "node": 0, "name": "node0" },
-    //         { "node": 1, "name": "node1" },
-    //         { "node": 2, "name": "node2" },
-    //         { "node": 3, "name": "node3" },
-    //         { "node": 4, "name": "node4" }
-    //     ],
-    //     "links": [
-    //         { "source": 0, "target": 2, "value": 2 },
-    //         { "source": 1, "target": 2, "value": 2 },
-    //         { "source": 1, "target": 3, "value": 2 },
-    //         { "source": 0, "target": 4, "value": 2 },
-    //         { "source": 2, "target": 3, "value": 2 },
-    //         { "source": 2, "target": 4, "value": 2 },
-    //         { "source": 3, "target": 4, "value": 4 }
-    //     ]
-    // };
-
 
     const wss = new WebSocketServer({ port: 8080 })
 
@@ -96,7 +126,7 @@ async function main() {
         ws.on("message", data => {
             console.log(`Client has sent us: ${data}`);
 
-            ws.send(JSON.stringify({model, settings}));
+            ws.send(JSON.stringify({ model, settings }));
         });
         ws.on("close", () => {
             console.log("the client has connected");

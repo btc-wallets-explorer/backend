@@ -35,7 +35,7 @@ export const getAddress = (xpub, type, number, change = 0) => {
 	return p2wpkh.address;
 }
 
-export const getAddressForMultisig = (xpubs, number, change = 0) => {
+export const getAddressForMultisig = (xpubs, type, number, change = 0) => {
 	let pubkeys = xpubs.map(x => bip32.fromBase58(x).derive(change).derive(number).publicKey);
 
 	pubkeys.sort((a, b) => a.compare(b));

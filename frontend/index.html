@@ -159,6 +159,15 @@
       const data = JSON.parse(event.data);
       // console.log(JSON.stringify(data, null, 2));
 
+      console.log(data.model.nodes.length);
+      const links = data.model.links;
+      let pairs = links.map(l => l.source + l.target);
+      pairs = [...pairs]
+      console.log(links.length, new Set(pairs).size);
+
+      const nodes = data.model.nodes;
+      let tpairs =nodes.map(n => n.name);
+      console.log(nodes.length, new Set(tpairs).size);
       generate(data.model, data.settings);
     };
 
