@@ -60,7 +60,7 @@ async function main() {
     };
 
     const getTransaction = async (transactionMap, tx_hash) => {
-        if (!tx_hash in transactionMap)
+        if (!(tx_hash in transactionMap))
             transactionMap[tx_hash] = await electrum.blockchainTransaction_get(tx_hash, true);
 
         return transactionMap[tx_hash];
@@ -80,23 +80,16 @@ async function main() {
 
         // load all other transactions
         const otherTransactions = histories.flatMap(h =>
-            transactionMap[h.txid].vin.map(async vin => vin.txid));
+            transactionMap[h.txid].vin.map(vin => vin.txid));
+        await Promise.all(otherTransactions.map(async txid => await getTransaction(transactionMap, txid)));
 
-        // const outgoingTxos = histories.map(h =>
-        //     transactionMap[h.txid].vout
-        //         .filter(vout => vout.scriptPubKey.address === h.address)
-        //         .map(vout => ({...h, source: h.txid, value: vout.value }))
-        // );
+        const incomingTxos = histories.flatMap(h =>
+            transactionMap[h.txid].vin
+                .map(vin => ({ ...h, vin, vout: transactionMap[vin.txid].vout[vin.vout] })))
+            .filter(txo => txo.vout.scriptPubKey.address === txo.address);
 
-        const outgoingTxos = histories.map(h =>
-            transactionMap[h.txid].vout
-                .filter(vout => vout.scriptPubKey.address === h.address)
-                .map(vout => ({ ...h, source: h.txid, value: vout.value }))
-        );
-
-        console.log(outgoingTxos);
-
-
+        return incomingTxos.map(txo =>
+            ({ ...txo, source: txo.vin.txid, target: txo.txid, value: txo.vout.value }))
     };
 
     const walletScriptHashMap = Object.fromEntries(await Promise.all(
@@ -108,11 +101,8 @@ async function main() {
         .map(h => h.tx_hash);
 
     let transactionMap = await getTransactions(txHashes);
-    console.log(txHashes);
-    console.log(transactionMap);
 
-    let id = 0;
-    const nodes = Object.values(transactionMap).map(tx => ({ id: tx.hash[0, 4], name: tx.hash, tx }));
+    const nodes = Object.values(transactionMap).map(tx => ({ id: tx.txid[0, 4], name: tx.txid, tx }));
     const links = await generateLinks(transactionMap, walletScriptHashMap);
 
 

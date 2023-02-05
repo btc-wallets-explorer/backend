@@ -72,7 +72,8 @@
         return {
           source: nodeMap[x.source],
           target: nodeMap[x.target],
-          value: x.value
+          value: x.value,
+          wallet: x.wallet
         };
       });
 
@@ -88,6 +89,12 @@
         .attr("class", "link")
         .attr("d", path)
         .style("stroke-width", function (d) { return Math.max(1, d.dy); })
+        .style("stroke", function (d) {
+          return d.color = color(d.wallet.replace(/ .*/, ""));
+        })
+        .style("fill", function (d) {
+          return d.color = color(d.wallet.replace(/ .*/, ""));
+        })
         .sort(function (a, b) { return b.dy - a.dy; });
 
       // add the link titles
@@ -118,7 +125,7 @@
         // .attr("height", () => 10)
         .attr("width", sankey.nodeWidth())
         .style("fill", function (d) {
-          return d.color = color(d.group.replace(/ .*/, ""));
+          return 'gray';
         })
         .on('click', (d) => {console.log(settings); window.open(settings["block-explorer-url"] + d.name, "_blank")})
         .style("stroke", function (d) {
@@ -129,7 +136,7 @@
           return d.id + "\n" + d.value;
         });
 
-      // add in the title for the nodes
+      // // add in the title for the nodes
       // node.append("text")
       //   .attr("x", -6)
       //   .attr("y", function (d) { return d.dy / 2; })
@@ -157,17 +164,7 @@
     const ws = new WebSocket('ws://localhost:8080');
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      // console.log(JSON.stringify(data, null, 2));
 
-      console.log(data.model.nodes.length);
-      const links = data.model.links;
-      let pairs = links.map(l => l.source + l.target);
-      pairs = [...pairs]
-      console.log(links.length, new Set(pairs).size);
-
-      const nodes = data.model.nodes;
-      let tpairs =nodes.map(n => n.name);
-      console.log(nodes.length, new Set(tpairs).size);
       generate(data.model, data.settings);
     };
 
