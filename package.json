@@ -1,19 +1,22 @@
 {
-  "name": "btc-address-explorer",
-  "version": "1.0.0",
+  "name": "btc-address-explorer-backend",
+  "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "src/main.js",
   "scripts": {
+    "start": "node src/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "type": "module",
   "author": "",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
+    "@mempool/electrum-client": "^1.1.8",
     "bip32": "^2.0.6",
     "bitcoinjs-lib": "^6.1.0",
     "csp": "0.0.1-alpha1",
-    "swank-js": "0.0.5"
+    "local-web-server": "^5.2.1",
+    "ws": "^8.12.0"
   },
   "devDependencies": {
     "eslint": "^8.31.0",
