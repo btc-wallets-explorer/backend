@@ -35,12 +35,12 @@ async function main() {
     return Object.fromEntries(objs.map((o) => [o.address, o]));
   };
 
-  const getHistories = async (addresses) => {
+  const getHistories = async (addressObjs) => {
     const histories = await Promise.all(
-      addresses.map(async (address) => ({
-        hash: toScriptHash(address),
-        address,
-        histories: await electrum.blockchainScripthash_getHistory(toScriptHash(address)),
+      addressObjs.map(async (o) => ({
+        hash: toScriptHash(o.address),
+        info: o,
+        histories: await electrum.blockchainScripthash_getHistory(toScriptHash(o.address)),
       })),
     );
 
@@ -70,14 +70,14 @@ async function main() {
 
   const getScriptHashMapForWallet = async (wallet) => {
     const addressMap = getAddresses(wallet);
-    return getHistories(Object.keys(addressMap));
+    return getHistories(Object.values(addressMap));
   };
 
   const generateLinks = async (transactionMap, walletScriptHashMap) => {
     const histories = Object.entries(walletScriptHashMap)
       .flatMap(([wallet, o]) => Object.entries(o).flatMap(
         ([scriptHash, v]) => v.histories.map((hist) => ({
-          wallet, scriptHash, address: v.address, txid: hist.tx_hash,
+          wallet, scriptHash, info: v.info, txid: hist.tx_hash,
         })),
       ));
 
@@ -91,7 +91,7 @@ async function main() {
 
     const incomingTxos = histories.flatMap((h) => transactionMap[h.txid].vin
       .map((vin) => ({ ...h, vin, vout: transactionMap[vin.txid].vout[vin.vout] })))
-      .filter((txo) => txo.vout.scriptPubKey.address === txo.address);
+      .filter((txo) => txo.vout.scriptPubKey.address === txo.info.address);
 
     return incomingTxos.map((txo) => ({
       ...txo, source: txo.vin.txid, target: txo.txid, value: txo.vout.value,
