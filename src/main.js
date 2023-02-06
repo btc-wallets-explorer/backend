@@ -128,9 +128,9 @@ async function main() {
     ws.on('close', () => {
       console.log('the client has disconnected');
     });
-    ws.onerror = () => {
+    ws.on('error', () => {
       console.log('Some Error occurred');
-    };
+    });
   });
   console.log('The WebSocket server is running on port 8080');
 }
