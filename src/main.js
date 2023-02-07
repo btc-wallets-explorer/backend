@@ -109,7 +109,7 @@ async function main() {
   const transactionMap = await getTransactions(txHashes);
 
   const nodes = Object.values(transactionMap).map(
-    (tx) => ({ id: tx.txid.slice(0, 4), name: tx.txid, tx }),
+    (tx) => ({ name: tx.txid.slice(0, 4), id: tx.txid, tx }),
   );
   const links = await generateLinks(transactionMap, walletScriptHashMap);
 
