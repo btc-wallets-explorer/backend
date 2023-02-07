@@ -12,8 +12,6 @@
   "type": "module",
   "dependencies": {
     "@mempool/electrum-client": "^1.1.8",
-    "bip32": "^2.0.6",
-    "bitcoinjs-lib": "^6.1.0",
     "csp": "0.0.1-alpha1",
     "local-web-server": "^5.2.1",
     "ws": "^8.12.0"
