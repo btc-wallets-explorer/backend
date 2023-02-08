@@ -1,19 +1,12 @@
+const { program } = require('commander');
 const server = require('./server');
 
-server.startServer();
+program
+  .option('-s, --settings <value>', 'settings file: e.g. settings.json')
+  .option('-w, --wallets <value>', 'wallets file: e.g. wallets.json');
 
-// eslint-disable-next-line import/no-extraneous-dependencies
-const { app, BrowserWindow } = require('electron');
+program.parse();
 
-const createWindow = () => {
-  const win = new BrowserWindow({
-    width: 800,
-    height: 600,
-  });
+const options = program.opts();
 
-  win.loadFile('./build/index.html');
-};
-
-app.whenReady().then(() => {
-  createWindow();
-});
+server.startServer(options.settings, options.wallets);

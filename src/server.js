@@ -12,9 +12,13 @@ const loadFile = (filename) => {
   return '';
 };
 
-exports.startServer = async () => {
-  const wallets = loadFile('resources/wallets.json');
-  const settings = loadFile('resources/settings.json');
+exports.startServer = async (settingsFile = undefined, walletsFile = undefined) => {
+  console.log(settingsFile, walletsFile);
+  const userWallets = walletsFile ? loadFile(walletsFile) : {};
+  const userSettings = settingsFile ? loadFile(settingsFile) : {};
+
+  const wallets = { ...userWallets, ...loadFile('resources/wallets.json') };
+  const settings = { ...userSettings, ...loadFile('resources/settings.json') };
 
   const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
   await electrum.connect();

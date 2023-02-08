@@ -4,16 +4,18 @@
   "description": "A tool to analyse identity correlations between different wallets.",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "node src/main.js",
+    "forge-start": "electron-forge start",
     "electron-start": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "forge-package": "electron-forge package",
+    "forge-make": "electron-forge make"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@mempool/electrum-client": "^1.1.8",
+    "commander": "^10.0.0",
     "csp": "0.0.1-alpha1",
     "electron-squirrel-startup": "^1.0.0",
     "ws": "^8.12.0"
