@@ -2,11 +2,11 @@
   "name": "btc-address-explorer-backend",
   "version": "0.0.1",
   "description": "A tool to analyse identity correlations between different wallets.",
-  "main": "src/main.js",
+  "main": "src/main-electron.js",
   "scripts": {
     "start": "node src/main.js",
     "forge-start": "electron-forge start",
-    "electron-start": "electron .",
+    "electron-start": "electron src/main-electron.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "forge-package": "electron-forge package",
     "forge-make": "electron-forge make"

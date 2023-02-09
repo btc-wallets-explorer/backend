@@ -13,7 +13,9 @@ const loadFile = (filename) => {
 };
 
 exports.startServer = async (settingsFile = undefined, walletsFile = undefined) => {
-  console.log(settingsFile, walletsFile);
+  console.log('Wallets file: ', walletsFile);
+  console.log('Settings file: ', settingsFile);
+
   const userWallets = walletsFile ? loadFile(walletsFile) : {};
   const userSettings = settingsFile ? loadFile(settingsFile) : {};
 
