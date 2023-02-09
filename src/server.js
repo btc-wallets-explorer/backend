@@ -27,6 +27,8 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
 
   const wss = new ws.WebSocketServer({ port: 8080 });
 
+  const transactionCache = {};
+
   wss.on('connection', (websocket) => {
     console.log('new client connected');
     websocket.on('message', async (rawData) => {
@@ -49,20 +51,25 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
           break;
 
         case 'get.histories': {
-          const histories = await Promise.all(
-            data.scriptHashes.map(async (scriptHash) => ({
-              scriptHash,
-              transactions: await electrum.blockchainScripthash_getHistory(scriptHash),
-            })),
-          );
-          send({ requestId, result: histories });
+          const responses = await electrum.blockchainScripthash_getHistoryBatch(data.scriptHashes);
+          const result = responses.map((r) => ({
+            scriptHash: r.param,
+            transactions: r.result,
+          }));
+          send({ requestId, result });
         }
           break;
 
         case 'get.transactions': {
           const transactions = await Promise.all(
             data.transactions.map(
-              async (txId) => electrum.blockchainTransaction_get(txId, true),
+              async (txId) => {
+                if (txId in transactionCache) { return transactionCache[txId]; }
+
+                const tx = electrum.blockchainTransaction_get(txId, true);
+                transactionCache[txId] = tx;
+                return tx;
+              },
             ),
           );
           send({ requestId, result: transactions });
