@@ -1,2 +1,5 @@
 wallets.json
 node_modules
+
+out/
+dist/
