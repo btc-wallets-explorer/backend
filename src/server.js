@@ -51,7 +51,7 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
           break;
 
         case 'get.histories': {
-          const responses = await electrum.blockchainScripthash_getHistoryBatch(data.scriptHashes);
+          const responses = await electrum.blockchainScripthash_getHistoryBatch(data.parameters);
           const result = responses.map((r) => ({
             scriptHash: r.param,
             transactions: r.result,
@@ -62,7 +62,7 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
 
         case 'get.transactions': {
           const transactions = await Promise.all(
-            data.transactions.map(
+            data.parameters.map(
               async (txId) => {
                 if (txId in transactionCache) { return transactionCache[txId]; }
 
