@@ -28,15 +28,15 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
   const wss = new ws.WebSocketServer({ port: 8080 });
 
   const transactionCache = {};
+  // TODO: remove as history changes
+  const historiesCache = {};
 
   wss.on('connection', (websocket) => {
     console.log('new client connected');
     websocket.on('message', async (rawData) => {
       const data = JSON.parse(rawData);
-      // console.log('Client has sent us:', data);
 
       const send = (msg) => {
-        // console.log('sending ', msg);
         websocket.send(JSON.stringify(msg));
       };
 
@@ -51,11 +51,20 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
           break;
 
         case 'get.histories': {
-          const responses = await electrum.blockchainScripthash_getHistoryBatch(data.parameters);
-          const result = responses.map((r) => ({
-            scriptHash: r.param,
-            transactions: r.result,
-          }));
+          const result = await Promise.all(data.parameters.map(
+            async (hash) => {
+              if (hash in historiesCache) { return historiesCache[hash]; }
+
+              const history = {
+                scriptHash: hash,
+                transactions: await electrum.blockchainScripthash_getHistory(hash),
+              };
+
+              historiesCache[hash] = history;
+              return history;
+            },
+          ));
+
           send({ requestId, result });
         }
           break;
@@ -72,6 +81,7 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
               },
             ),
           );
+
           send({ requestId, result: transactions });
         }
           break;
