@@ -16,10 +16,10 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
   console.log('Wallets file: ', walletsFile);
   console.log('Settings file: ', settingsFile);
 
-  const userWallets = walletsFile ? loadFile(walletsFile) : {};
+  const userWallets = walletsFile ? loadFile(walletsFile) : [];
   const userSettings = settingsFile ? loadFile(settingsFile) : {};
 
-  const wallets = { ...userWallets, ...loadFile('resources/wallets.json') };
+  const wallets = [...userWallets, ...loadFile('resources/wallets.json')];
   const settings = { ...userSettings, ...loadFile('resources/settings.json') };
 
   const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
@@ -31,6 +31,59 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
   // TODO: remove as history changes
   const historiesCache = {};
 
+  const requestHandler = async (data, send) => {
+    const { requestId } = data;
+
+    switch (data.requestType) {
+      case 'get.settings':
+        send({ requestId, result: settings });
+        break;
+
+      case 'get.wallets':
+        send({ requestId, result: wallets });
+        break;
+
+      case 'get.histories': {
+        const result = await Promise.all(data.parameters.map(
+          async (hash) => {
+            if (hash in historiesCache) { return historiesCache[hash]; }
+
+            const history = {
+              scriptHash: hash,
+              transactions: await electrum.blockchainScripthash_getHistory(hash),
+            };
+
+            historiesCache[hash] = history;
+            return history;
+          },
+        ));
+
+        send({ requestId, result });
+      }
+        break;
+
+      case 'get.transactions': {
+        const transactions = await Promise.all(
+          data.parameters.map(
+            async (txId) => {
+              if (txId in transactionCache) { return transactionCache[txId]; }
+
+              const tx = electrum.blockchainTransaction_get(txId, true);
+              transactionCache[txId] = tx;
+              return tx;
+            },
+          ),
+        );
+
+        send({ requestId, result: transactions });
+      }
+        break;
+
+      default:
+        console.error(data.requestType, ' not supported');
+    }
+  };
+
   wss.on('connection', (websocket) => {
     console.log('new client connected');
     websocket.on('message', async (rawData) => {
@@ -40,54 +93,10 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
         websocket.send(JSON.stringify(msg));
       };
 
-      const { requestId } = data;
-      switch (data.requestType) {
-        case 'get.settings':
-          send({ requestId, result: settings });
-          break;
-
-        case 'get.wallets':
-          send({ requestId, result: wallets });
-          break;
-
-        case 'get.histories': {
-          const result = await Promise.all(data.parameters.map(
-            async (hash) => {
-              if (hash in historiesCache) { return historiesCache[hash]; }
-
-              const history = {
-                scriptHash: hash,
-                transactions: await electrum.blockchainScripthash_getHistory(hash),
-              };
-
-              historiesCache[hash] = history;
-              return history;
-            },
-          ));
-
-          send({ requestId, result });
-        }
-          break;
-
-        case 'get.transactions': {
-          const transactions = await Promise.all(
-            data.parameters.map(
-              async (txId) => {
-                if (txId in transactionCache) { return transactionCache[txId]; }
-
-                const tx = electrum.blockchainTransaction_get(txId, true);
-                transactionCache[txId] = tx;
-                return tx;
-              },
-            ),
-          );
-
-          send({ requestId, result: transactions });
-        }
-          break;
-
-        default:
-          console.error(data.requestType, ' not supported');
+      try {
+        requestHandler(data, send);
+      } catch (exception) {
+        console.log(exception);
       }
     });
     websocket.on('close', () => {
