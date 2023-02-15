@@ -30,6 +30,8 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
   const transactionCache = {};
   // TODO: remove as history changes
   const historiesCache = {};
+  // TODO: remove as utxos change
+  const utxoCache = {};
 
   const requestHandler = async (data, send) => {
     const { requestId } = data;
@@ -71,6 +73,27 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
               const tx = electrum.blockchainTransaction_get(txId, true);
               transactionCache[txId] = tx;
               return tx;
+            },
+          ),
+        );
+
+        send({ requestId, result: transactions });
+      }
+        break;
+
+      case 'get.utxos': {
+        const transactions = await Promise.all(
+          data.parameters.map(
+            async (scriptHash) => {
+              if (scriptHash in utxoCache) { return utxoCache[scriptHash]; }
+
+              const unspent = {
+                scriptHash,
+                utxos: await electrum.blockchainScripthash_listunspent(scriptHash),
+              };
+
+              utxoCache[scriptHash] = unspent;
+              return unspent;
             },
           ),
         );
