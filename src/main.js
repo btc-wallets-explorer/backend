@@ -1,6 +1,9 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 const { app, BrowserWindow } = require('electron');
+const path = require('path');
 const server = require('./server');
+
+console.log('electron version started');
 
 const walletsFile = app.commandLine.getSwitchValue('wallets');
 const settingsFile = app.commandLine.getSwitchValue('settings');
@@ -14,7 +17,9 @@ const startApp = async () => {
       height: 600,
     });
 
-    win.loadFile('./dist/index.html');
+    const p = path.join(__static, '/index.html');
+    console.log(p);
+    win.loadFile(p);
   };
 
   app.whenReady().then(() => {

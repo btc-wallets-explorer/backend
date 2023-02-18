@@ -1,15 +1,19 @@
 {
+  "build": {
+    "appId": "btc-wallet-explorer"
+  },
   "name": "btc-address-explorer-backend",
   "version": "0.0.1",
   "description": "A tool to analyse identity correlations between different wallets.",
-  "main": "src/main-electron.js",
+  "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
-    "forge-start": "electron-forge start",
-    "electron-start": "electron src/main-electron.js",
+    "start": "node src/main-server.js",
+    "electron-start": "electron src/main.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "forge-package": "electron-forge package",
-    "forge-make": "electron-forge make"
+    "dev": "NODE_OPTIONS=--openssl-legacy-provider electron-webpack dev",
+    "compile": "NODE_OPTIONS=--openssl-legacy-provider electron-webpack",
+    "dist": "npm run compile && electron-builder",
+    "dist:dir": "npm run dist -- --dir -c.compression=store -c.mac.identity=null"
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +21,7 @@
     "@mempool/electrum-client": "^1.1.8",
     "commander": "^10.0.0",
     "csp": "0.0.1-alpha1",
+    "source-map-support": "^0.5.21",
     "ws": "^8.12.0"
   },
   "devDependencies": {
