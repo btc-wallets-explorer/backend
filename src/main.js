@@ -1,12 +1,30 @@
-const { program } = require('commander');
+// eslint-disable-next-line import/no-extraneous-dependencies
+const { app, BrowserWindow } = require('electron');
+const path = require('path');
 const server = require('./server');
 
-program
-  .option('-s, --settings <value>', 'settings file: e.g. settings.json')
-  .option('-w, --wallets <value>', 'wallets file: e.g. wallets.json');
+console.log('electron version started');
 
-program.parse();
+const walletsFile = app.commandLine.getSwitchValue('wallets');
+const settingsFile = app.commandLine.getSwitchValue('settings');
 
-const options = program.opts();
+const startApp = async () => {
+  await server.startServer(settingsFile, walletsFile);
 
-server.startServer(options.settings, options.wallets);
+  const createWindow = () => {
+    const win = new BrowserWindow({
+      width: 800,
+      height: 600,
+    });
+
+    const p = path.join(__static, '/index.html');
+    console.log(p);
+    win.loadFile(p);
+  };
+
+  app.whenReady().then(() => {
+    createWindow();
+  });
+};
+
+startApp();
