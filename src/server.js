@@ -1,5 +1,5 @@
 const fs = require('fs');
-const ws = require('ws');
+const WebSocket = require('ws');
 const ElectrumClient = require('@mempool/electrum-client');
 
 const loadFile = (filename) => {
@@ -12,7 +12,7 @@ const loadFile = (filename) => {
   return '';
 };
 
-exports.startServer = async (settingsFile = undefined, walletsFile = undefined) => {
+exports.startServer = async (settingsFile = undefined, walletsFile = undefined, server) => {
   console.log('Wallets file: ', walletsFile);
   console.log('Settings file: ', settingsFile);
 
@@ -25,7 +25,7 @@ exports.startServer = async (settingsFile = undefined, walletsFile = undefined) 
   const electrum = new ElectrumClient(50001, 'localhost', 'tcp');
   await electrum.connect();
 
-  const wss = new ws.WebSocketServer({ port: 8080 });
+  const wss = new WebSocket.Server({ server });
 
   const transactionCache = {};
   // TODO: remove as history changes

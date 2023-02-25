@@ -13,6 +13,7 @@
     "@mempool/electrum-client": "^1.1.8",
     "commander": "^10.0.0",
     "csp": "0.0.1-alpha1",
+    "express": "^4.18.2",
     "ws": "^8.12.0"
   },
   "devDependencies": {
@@ -21,7 +22,6 @@
     "eslint-plugin-import": "^2.26.0"
   },
   "exports": {
-    ".": "./src/server.js" 
+    ".": "./src/server.js"
   }
-
 }
