@@ -23,8 +23,8 @@ exports.startServer = async (
   const userWallets = walletsFile ? loadFile(walletsFile) : [];
   const userSettings = settingsFile ? loadFile(settingsFile) : {};
 
-  const wallets = [...userWallets, ...loadFile('resources/wallets.json')];
-  const settings = { ...userSettings, ...loadFile('resources/settings.json') };
+  const wallets = [...loadFile('resources/wallets.json'), ...userWallets];
+  const settings = { ...loadFile('resources/settings.json'), ...userSettings };
 
   const electrum = new ElectrumClient(
     settings.electrum.port,
