@@ -1,3 +1,12 @@
 {
-    "block-explorer-url": "https://mempool.some.domain:8080/tx/"
+    "block-explorer-url": "https://localhost/block-explorer-url-not-configured-in-settings/tx/",
+    "backend" : {
+        "port": 8080,
+        "hostname": "localhost"
+    },
+    "electrum" : {
+        "port": 50001,
+        "hostname": "localhost",
+        "protocol": "tcp"
+    }
 }
