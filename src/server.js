@@ -1,5 +1,8 @@
-const fs = require('fs');
+const http = require('http');
+const express = require('express');
 const WebSocket = require('ws');
+
+const fs = require('fs');
 const ElectrumClient = require('@mempool/electrum-client');
 
 const loadFile = (filename) => {
@@ -12,11 +15,7 @@ const loadFile = (filename) => {
   return '';
 };
 
-exports.startServer = async (
-  settingsFile = undefined,
-  walletsFile = undefined,
-  server = undefined,
-) => {
+exports.loadFiles = async (settingsFile, walletsFile) => {
   console.log('Wallets file: ', walletsFile);
   console.log('Settings file: ', settingsFile);
 
@@ -26,6 +25,45 @@ exports.startServer = async (
   const wallets = [...loadFile('resources/wallets.json'), ...userWallets];
   const settings = { ...loadFile('resources/settings.json'), ...userSettings };
 
+  return { wallets, settings };
+};
+
+exports.startServer = async (settingsFile, walletsFile, distDir) => {
+  const app = express();
+  const server = http.createServer(app);
+
+  server.listen(8080, () => {
+    console.log('Server running');
+  });
+
+  const { settings, wallets } = await this.loadFiles(settingsFile, walletsFile);
+
+  const backendUrl = `ws://${settings.backend.hostname}:${settings.backend.port}`;
+
+  if (distDir) {
+    const path = distDir;
+    app.get('/', (req, res) => {
+      res.send(`
+      <head><script defer src="bundle-front.js"></script></head>
+      <!DOCTYPE html>
+      <meta charset="utf-8">
+      <body>
+      <main-application backend-url="${backendUrl}"></main-application>
+      </body>
+      </html>
+    `);
+    });
+
+    app.get('/bundle-front.js', (req, res) => {
+      res.sendFile(`${path}/bundle-front.js`);
+    });
+  }
+
+  const wss = new WebSocket.Server({ server });
+  this.startWebSocketProcess(wss, settings, wallets);
+};
+
+exports.startWebSocketProcess = async (wss, settings, wallets) => {
   const electrum = new ElectrumClient(
     settings.electrum.port,
     settings.electrum.hostname,
@@ -33,8 +71,6 @@ exports.startServer = async (
   );
 
   await electrum.connect();
-
-  const wss = new WebSocket.Server({ server });
 
   const transactionCache = {};
   // TODO: remove as history changes

@@ -1,7 +1,5 @@
-const http = require('http');
-const express = require('express');
 const { program } = require('commander');
-const ser = require('./server');
+const server = require('./server');
 
 console.log('server version started');
 
@@ -14,22 +12,4 @@ program.parse();
 
 const options = program.opts();
 
-const app = express();
-const server = http.createServer(app);
-
-server.listen(8080, () => {
-  console.log('Server running');
-});
-
-if (options.dist) {
-  const path = options.dist;
-  app.get('/', (req, res) => {
-    res.sendFile(`${path}/dist/index.html`);
-  });
-
-  app.get('/bundle-front.js', (req, res) => {
-    res.sendFile(`${path}/dist/bundle-front.js`);
-  });
-}
-
-ser.startServer(options.settings, options.wallets, server);
+server.startServer(options.settings, options.wallets, options.dist);
