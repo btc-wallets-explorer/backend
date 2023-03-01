@@ -38,7 +38,7 @@ exports.startServer = async (settingsFile, walletsFile, distDir) => {
 
   const { settings, wallets } = await this.loadFiles(settingsFile, walletsFile);
 
-  const backendUrl = `ws://${settings.backend.hostname}:${settings.backend.port}`;
+  const backendUrl = `${settings.backend.protocol}://${settings.backend.hostname}:${settings.backend.port}`;
 
   if (distDir) {
     const path = distDir;

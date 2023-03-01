@@ -2,7 +2,8 @@
     "block-explorer-url": "https://localhost/block-explorer-url-not-configured-in-settings/tx/",
     "backend" : {
         "port": 8080,
-        "hostname": "localhost"
+        "hostname": "localhost",
+        "protocol": "ws"
     },
     "electrum" : {
         "port": 50001,
