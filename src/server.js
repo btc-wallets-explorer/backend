@@ -43,19 +43,14 @@ exports.startServer = async (settingsFile, walletsFile, distDir) => {
   if (distDir) {
     const path = distDir;
     app.get('/', (req, res) => {
-      res.send(`
-      <head><script defer src="bundle-front.js"></script></head>
-      <!DOCTYPE html>
-      <meta charset="utf-8">
-      <body>
-      <main-application backend-url="${backendUrl}"></main-application>
-      </body>
-      </html>
-    `);
+      res.sendFile(`${path}/index.html`);
     });
 
-    app.get('/bundle-front.js', (req, res) => {
-      res.sendFile(`${path}/bundle-front.js`);
+    app.get('/app.js', (req, res) => {
+      res.sendFile(`${path}/app.js`);
+    });
+    app.get('/config.js', (req, res) => {
+      res.send(`window.bwe = { 'backend-url': '${backendUrl}' }`);
     });
   }
 
