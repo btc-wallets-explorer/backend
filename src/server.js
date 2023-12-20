@@ -1,29 +1,29 @@
-const http = require('http');
-const express = require('express');
-const WebSocket = require('ws');
+const http = require("http");
+const express = require("express");
+const WebSocket = require("ws");
 
-const fs = require('fs');
-const ElectrumClient = require('@mempool/electrum-client');
+const fs = require("fs");
+const ElectrumClient = require("@mempool/electrum-client");
 
 const loadFile = (filename) => {
   try {
-    const data = fs.readFileSync(filename, 'utf8');
+    const data = fs.readFileSync(filename, "utf8");
     return JSON.parse(data);
   } catch (err) {
     console.error(`Error reading file from disk: ${err}`);
   }
-  return '';
+  return "";
 };
 
 exports.loadFiles = async (settingsFile, walletsFile) => {
-  console.log('Wallets file: ', walletsFile);
-  console.log('Settings file: ', settingsFile);
+  console.log("Wallets file: ", walletsFile);
+  console.log("Settings file: ", settingsFile);
 
   const userWallets = walletsFile ? loadFile(walletsFile) : [];
   const userSettings = settingsFile ? loadFile(settingsFile) : {};
 
-  const wallets = [...loadFile('resources/wallets.json'), ...userWallets];
-  const settings = { ...loadFile('resources/settings.json'), ...userSettings };
+  const wallets = [...loadFile("resources/wallets.json"), ...userWallets];
+  const settings = { ...loadFile("resources/settings.json"), ...userSettings };
 
   return { wallets, settings };
 };
@@ -33,7 +33,7 @@ exports.startServer = async (settingsFile, walletsFile, distDir) => {
   const server = http.createServer(app);
 
   server.listen(8080, () => {
-    console.log('Server running');
+    console.log("Server running");
   });
 
   const { settings, wallets } = await this.loadFiles(settingsFile, walletsFile);
@@ -42,14 +42,14 @@ exports.startServer = async (settingsFile, walletsFile, distDir) => {
 
   if (distDir) {
     const path = distDir;
-    app.get('/', (req, res) => {
+    app.get("/", (req, res) => {
       res.sendFile(`${path}/index.html`);
     });
 
-    app.get('/app.js', (req, res) => {
+    app.get("/app.js", (req, res) => {
       res.sendFile(`${path}/app.js`);
     });
-    app.get('/config.js', (req, res) => {
+    app.get("/config.js", (req, res) => {
       res.send(`window.bwe = { 'backend-url': '${backendUrl}' }`);
     });
   }
@@ -77,79 +77,86 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
     const { requestId } = data;
 
     switch (data.requestType) {
-      case 'get.settings':
+      case "get.settings":
         send({ requestId, result: settings });
         break;
 
-      case 'get.wallets':
+      case "get.wallets":
         send({ requestId, result: wallets });
         break;
 
-      case 'get.histories': {
-        const result = await Promise.all(data.parameters.map(
-          async (hash) => {
-            if (hash in historiesCache) { return historiesCache[hash]; }
+      case "get.histories":
+        {
+          console.log(data);
+          const result = await Promise.all(
+            data.parameters.map(async (hash) => {
+              if (hash in historiesCache) {
+                return historiesCache[hash];
+              }
 
-            const history = {
-              scriptHash: hash,
-              transactions: await electrum.blockchainScripthash_getHistory(hash),
-            };
+              const history = {
+                scriptHash: hash,
+                transactions:
+                  await electrum.blockchainScripthash_getHistory(hash),
+              };
 
-            historiesCache[hash] = history;
-            return history;
-          },
-        ));
+              historiesCache[hash] = history;
+              return history;
+            }),
+          );
 
-        send({ requestId, result });
-      }
+          send({ requestId, result });
+        }
         break;
 
-      case 'get.transactions': {
-        const transactions = await Promise.all(
-          data.parameters.map(
-            async (txId) => {
-              if (txId in transactionCache) { return transactionCache[txId]; }
+      case "get.transactions":
+        {
+          const transactions = await Promise.all(
+            data.parameters.map(async (txId) => {
+              if (txId in transactionCache) {
+                return transactionCache[txId];
+              }
 
               const tx = electrum.blockchainTransaction_get(txId, true);
               transactionCache[txId] = tx;
               return tx;
-            },
-          ),
-        );
+            }),
+          );
 
-        send({ requestId, result: transactions });
-      }
+          send({ requestId, result: transactions });
+        }
         break;
 
-      case 'get.utxos': {
-        const transactions = await Promise.all(
-          data.parameters.map(
-            async (scriptHash) => {
-              if (scriptHash in utxoCache) { return utxoCache[scriptHash]; }
+      case "get.utxos":
+        {
+          const transactions = await Promise.all(
+            data.parameters.map(async (scriptHash) => {
+              if (scriptHash in utxoCache) {
+                return utxoCache[scriptHash];
+              }
 
               const unspent = {
                 scriptHash,
-                utxos: await electrum.blockchainScripthash_listunspent(scriptHash),
+                utxos:
+                  await electrum.blockchainScripthash_listunspent(scriptHash),
               };
 
               utxoCache[scriptHash] = unspent;
               return unspent;
-            },
-          ),
-        );
+            }),
+          );
 
-        send({ requestId, result: transactions });
-      }
+          send({ requestId, result: transactions });
+        }
         break;
 
       default:
-        console.error(data.requestType, ' not supported');
+        console.error(data.requestType, " not supported");
     }
   };
 
-  wss.on('connection', (websocket) => {
-    console.log('new client connected');
-    websocket.on('message', async (rawData) => {
+  wss.on("connection", (websocket) => {
+    websocket.on("message", async (rawData) => {
       const data = JSON.parse(rawData);
 
       const send = (msg) => {
@@ -162,11 +169,11 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
         console.log(exception);
       }
     });
-    websocket.on('close', () => {
-      console.log('the client has disconnected');
+    websocket.on("close", () => {
+      console.log("the client has disconnected");
     });
-    websocket.on('error', () => {
-      console.log('Some Error occurred');
+    websocket.on("error", () => {
+      console.log("Some Error occurred");
     });
   });
 };
