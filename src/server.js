@@ -111,6 +111,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.transactions":
         {
+          console.log(data);
           const transactions = await Promise.all(
             data.parameters.map(async (txId) => {
               if (txId in transactionCache) {
@@ -156,6 +157,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
   };
 
   wss.on("connection", (websocket) => {
+    console.log("new client connected");
     websocket.on("message", async (rawData) => {
       const data = JSON.parse(rawData);
 
