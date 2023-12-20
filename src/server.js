@@ -4,9 +4,9 @@ const WebSocket = require("ws");
 
 const fs = require("fs");
 const ElectrumClient = require("@mempool/electrum-client");
-const { chunk } = require("lodash");
+const { chunk, flatten } = require("lodash");
 
-const BATCH_SIZE = 10;
+const BATCH_SIZE = 50;
 
 const loadFile = (filename) => {
   try {
@@ -16,6 +16,10 @@ const loadFile = (filename) => {
     console.error(`Error reading file from disk: ${err}`);
   }
   return "";
+};
+
+const processInBatches = async (data, fn, batchSize = BATCH_SIZE) => {
+  return flatten(await Promise.all(chunk(data, batchSize).map(fn)));
 };
 
 exports.loadFiles = async (settingsFile, walletsFile) => {
@@ -77,9 +81,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
   const utxoCache = {};
 
   const requestHandler = async (data, send) => {
-    const batchSize = 10;
     const { requestId } = data;
-    console.log("new request", data);
 
     switch (data.requestType) {
       case "get.settings":
@@ -92,22 +94,25 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.histories":
         {
-          console.log(data);
-          const result = await Promise.all(
-            data.parameters.map(async (hash) => {
-              if (hash in historiesCache) {
-                return historiesCache[hash];
-              }
+          const result = await processInBatches(
+            data.parameters,
+            async (batch) =>
+              await Promise.all(
+                batch.map(async (hash) => {
+                  if (hash in historiesCache) {
+                    return historiesCache[hash];
+                  }
 
-              const history = {
-                scriptHash: hash,
-                transactions:
-                  await electrum.blockchainScripthash_getHistory(hash),
-              };
+                  const history = {
+                    scriptHash: hash,
+                    transactions:
+                      await electrum.blockchainScripthash_getHistory(hash),
+                  };
 
-              historiesCache[hash] = history;
-              return history;
-            }),
+                  historiesCache[hash] = history;
+                  return history;
+                }),
+              ),
           );
 
           send({ requestId, result });
@@ -116,25 +121,21 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.transactions":
         {
-          const batches = chunk(data.parameters, BATCH_SIZE);
-          const transactions = batches.flatMap(async (batch) => {
-            const result = await Promise.all(
-              batch.map(async (txId) => {
-                if (txId in transactionCache) {
-                  return transactionCache[txId];
-                }
+          const transactions = await processInBatches(
+            data.parameters,
+            async (batch) =>
+              await Promise.all(
+                batch.map(async (txId) => {
+                  if (txId in transactionCache) {
+                    return transactionCache[txId];
+                  }
 
-                console.log(txId);
-                const tx = electrum.blockchainTransaction_get(txId, true);
-                console.log(tx);
-                transactionCache[txId] = tx;
-                return tx;
-              }),
-            );
-
-            console.log(result);
-            return result;
-          });
+                  const tx = electrum.blockchainTransaction_get(txId, true);
+                  transactionCache[txId] = tx;
+                  return tx;
+                }),
+              ),
+          );
 
           send({ requestId, result: transactions });
         }
@@ -142,21 +143,27 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.utxos":
         {
-          const transactions = await Promise.all(
-            data.parameters.map(async (scriptHash) => {
-              if (scriptHash in utxoCache) {
-                return utxoCache[scriptHash];
-              }
+          const transactions = await processInBatches(
+            data.parameters,
+            async (batch) =>
+              await Promise.all(
+                batch.map(async (scriptHash) => {
+                  if (scriptHash in utxoCache) {
+                    return utxoCache[scriptHash];
+                  }
 
-              const unspent = {
-                scriptHash,
-                utxos:
-                  await electrum.blockchainScripthash_listunspent(scriptHash),
-              };
+                  const unspent = {
+                    scriptHash,
+                    utxos:
+                      await electrum.blockchainScripthash_listunspent(
+                        scriptHash,
+                      ),
+                  };
 
-              utxoCache[scriptHash] = unspent;
-              return unspent;
-            }),
+                  utxoCache[scriptHash] = unspent;
+                  return unspent;
+                }),
+              ),
           );
 
           send({ requestId, result: transactions });
@@ -175,13 +182,12 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       const send = (msg) => {
         websocket.send(JSON.stringify(msg));
-        console.log("sent");
       };
 
       try {
         requestHandler(data, send);
       } catch (exception) {
-        console.log(exception);
+        console.log("------------->", exception);
       }
     });
     websocket.on("close", () => {
