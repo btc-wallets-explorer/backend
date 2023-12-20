@@ -4,6 +4,9 @@ const WebSocket = require("ws");
 
 const fs = require("fs");
 const ElectrumClient = require("@mempool/electrum-client");
+const { chunk } = require("lodash");
+
+const BATCH_SIZE = 10;
 
 const loadFile = (filename) => {
   try {
@@ -74,7 +77,9 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
   const utxoCache = {};
 
   const requestHandler = async (data, send) => {
+    const batchSize = 10;
     const { requestId } = data;
+    console.log("new request", data);
 
     switch (data.requestType) {
       case "get.settings":
@@ -111,18 +116,25 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.transactions":
         {
-          console.log(data);
-          const transactions = await Promise.all(
-            data.parameters.map(async (txId) => {
-              if (txId in transactionCache) {
-                return transactionCache[txId];
-              }
+          const batches = chunk(data.parameters, BATCH_SIZE);
+          const transactions = batches.flatMap(async (batch) => {
+            const result = await Promise.all(
+              batch.map(async (txId) => {
+                if (txId in transactionCache) {
+                  return transactionCache[txId];
+                }
 
-              const tx = electrum.blockchainTransaction_get(txId, true);
-              transactionCache[txId] = tx;
-              return tx;
-            }),
-          );
+                console.log(txId);
+                const tx = electrum.blockchainTransaction_get(txId, true);
+                console.log(tx);
+                transactionCache[txId] = tx;
+                return tx;
+              }),
+            );
+
+            console.log(result);
+            return result;
+          });
 
           send({ requestId, result: transactions });
         }
@@ -163,6 +175,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       const send = (msg) => {
         websocket.send(JSON.stringify(msg));
+        console.log("sent");
       };
 
       try {
