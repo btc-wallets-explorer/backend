@@ -6,7 +6,9 @@ const fs = require("fs");
 const ElectrumClient = require("@mempool/electrum-client");
 const { chunk, flatten } = require("lodash");
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE_HISTORIES = 50;
+const BATCH_SIZE_TRANSACTIONS = 8;
+const BATCH_SIZE_UTXOS = 50;
 
 const loadFile = (filename) => {
   try {
@@ -18,8 +20,12 @@ const loadFile = (filename) => {
   return "";
 };
 
-const processInBatches = async (data, fn, batchSize = BATCH_SIZE) => {
-  return flatten(await Promise.all(chunk(data, batchSize).map(fn)));
+const processInBatches = async (data, fn, batchSize = 50) => {
+  const batches = chunk(data, batchSize);
+  const batchResults = [];
+  for (const batch of batches) batchResults.push(await fn(batch));
+  const result = flatten(batchResults);
+  return result;
 };
 
 exports.loadFiles = async (settingsFile, walletsFile) => {
@@ -97,22 +103,13 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
           const result = await processInBatches(
             data.parameters,
             async (batch) =>
-              await Promise.all(
-                batch.map(async (hash) => {
-                  if (hash in historiesCache) {
-                    return historiesCache[hash];
-                  }
-
-                  const history = {
-                    scriptHash: hash,
-                    transactions:
-                      await electrum.blockchainScripthash_getHistory(hash),
-                  };
-
-                  historiesCache[hash] = history;
-                  return history;
+              (await electrum.blockchainScripthash_getHistoryBatch(batch)).map(
+                (response, i) => ({
+                  scriptHash: batch[i],
+                  transactions: response.result,
                 }),
               ),
+            BATCH_SIZE_HISTORIES,
           );
 
           send({ requestId, result });
@@ -123,18 +120,14 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
         {
           const transactions = await processInBatches(
             data.parameters,
-            async (batch) =>
-              await Promise.all(
-                batch.map(async (txId) => {
-                  if (txId in transactionCache) {
-                    return transactionCache[txId];
-                  }
-
-                  const tx = electrum.blockchainTransaction_get(txId, true);
-                  transactionCache[txId] = tx;
-                  return tx;
-                }),
-              ),
+            async (batch) => {
+              const result = await electrum.blockchainTransaction_getBatch(
+                batch,
+                true,
+              );
+              return result.map((queryResult) => queryResult.result);
+            },
+            BATCH_SIZE_TRANSACTIONS,
           );
 
           send({ requestId, result: transactions });
@@ -164,6 +157,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
                   return unspent;
                 }),
               ),
+            BATCH_SIZE_UTXOS,
           );
 
           send({ requestId, result: transactions });
