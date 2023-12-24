@@ -16,8 +16,8 @@ const loadFile = (filename) => {
 };
 
 exports.loadFiles = async (settingsFile, walletsFile) => {
-  console.log("Wallets file: ", walletsFile);
-  console.log("Settings file: ", settingsFile);
+  console.info("Wallets file: ", walletsFile);
+  console.info("Settings file: ", settingsFile);
 
   const userWallets = walletsFile ? loadFile(walletsFile) : [];
   const userSettings = settingsFile ? loadFile(settingsFile) : {};
@@ -33,7 +33,7 @@ exports.startServer = async (settingsFile, walletsFile, distDir) => {
   const server = http.createServer(app);
 
   server.listen(8080, () => {
-    console.log("Server running");
+    console.info("Server running");
   });
 
   const { settings, wallets } = await this.loadFiles(settingsFile, walletsFile);
@@ -87,6 +87,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.histories":
         {
+          console.info(`Fetching ${data.parameters.length} scriptHashes`);
           const result = await Promise.all(
             data.parameters.map(async (hash) => {
               if (hash in historiesCache) {
@@ -110,6 +111,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.transactions":
         {
+          console.info(`Fetching ${data.parameters.length} transactions`);
           const transactions = await Promise.all(
             data.parameters.map(async (txId) => {
               if (txId in transactionCache) {
@@ -128,6 +130,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
 
       case "get.utxos":
         {
+          console.info(`Fetching ${data.parameters.length} utxos`);
           const transactions = await Promise.all(
             data.parameters.map(async (scriptHash) => {
               if (scriptHash in utxoCache) {
@@ -155,7 +158,7 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
   };
 
   wss.on("connection", (websocket) => {
-    console.log("new client connected");
+    console.info("new client connected");
     websocket.on("message", async (rawData) => {
       const data = JSON.parse(rawData);
 
@@ -166,14 +169,14 @@ exports.startWebSocketProcess = async (wss, settings, wallets) => {
       try {
         requestHandler(data, send);
       } catch (exception) {
-        console.log(exception);
+        console.error(JSON.stringify(exception));
       }
     });
     websocket.on("close", () => {
-      console.log("the client has disconnected");
+      console.info("the client has disconnected");
     });
     websocket.on("error", () => {
-      console.log("Some Error occurred");
+      console.info("Some Error occurred");
     });
   });
 };
